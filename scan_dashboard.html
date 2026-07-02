@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Portscope — Scan Results Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+  :root{
+    --bg:#0E1420; --bg-soft:#121A29; --panel:#161D2C;
+    --panel-border:rgba(220,227,234,0.08); --text:#DCE3EA; --text-dim:#8A96AC;
+    --cyan:#4FD8C4; --cyan-soft:rgba(79,216,196,0.14);
+    --amber:#F0A857; --amber-soft:rgba(240,168,87,0.14);
+    --grad-a:#1B2942; --grad-b:#0E1420; --radius:16px;
+  }
+  [data-theme="light"]{
+    --bg:#F4F6FA; --bg-soft:#ECEFF5; --panel:#FFFFFF;
+    --panel-border:rgba(20,30,50,0.08); --text:#1A2236; --text-dim:#5C6B85;
+    --cyan:#0E9C8A; --cyan-soft:rgba(14,156,138,0.10);
+    --amber:#C9791E; --amber-soft:rgba(201,121,30,0.10);
+    --grad-a:#E4E9F2; --grad-b:#F4F6FA;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;overflow-x:hidden;transition:background .4s,color .4s;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+
+  .ambient{position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background:radial-gradient(circle at 15% 20%,var(--cyan-soft),transparent 40%),
+               radial-gradient(circle at 85% 0%,var(--amber-soft),transparent 35%),
+               linear-gradient(160deg,var(--grad-a),var(--grad-b));
+    animation:driftBg 22s ease-in-out infinite;}
+  @keyframes driftBg{0%,100%{background-position:0% 0%;}50%{background-position:10% 15%;}}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:0 28px;}
+
+  header{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);
+    background:color-mix(in srgb,var(--bg) 70%,transparent);border-bottom:1px solid var(--panel-border);}
+  .nav{display:flex;align-items:center;justify-content:space-between;padding:18px 0;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-dot{width:10px;height:10px;border-radius:50%;background:var(--cyan);
+    animation:pulseDot 2.4s ease-in-out infinite;}
+  @keyframes pulseDot{0%{box-shadow:0 0 0 0 var(--cyan-soft);}70%{box-shadow:0 0 0 8px transparent;}100%{box-shadow:0 0 0 0 transparent;}}
+  .brand-name{font-weight:700;letter-spacing:.02em;font-size:18px;font-family:'Space Grotesk',sans-serif;}
+  .brand-sub{color:var(--text-dim);font-size:11px;letter-spacing:.12em;text-transform:uppercase;}
+  .theme-toggle{border:1px solid var(--panel-border);background:var(--panel);color:var(--text);
+    border-radius:999px;padding:8px 16px;font-size:13px;cursor:pointer;transition:transform .15s,border-color .2s;}
+  .theme-toggle:hover{transform:translateY(-1px);border-color:var(--cyan);}
+
+  /* hero */
+  .hero{padding:64px 0 40px;display:grid;grid-template-columns:1.1fr 0.9fr;gap:40px;align-items:center;}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--cyan);margin-bottom:18px;}
+  .eyebrow::before{content:"";width:18px;height:1px;background:var(--cyan);}
+  h1{font-size:44px;line-height:1.08;letter-spacing:-.01em;margin-bottom:18px;font-family:'Space Grotesk',sans-serif;}
+  h1 .accent{color:var(--cyan);}
+  .lede{color:var(--text-dim);font-size:16px;line-height:1.6;max-width:480px;margin-bottom:28px;}
+  .cta-row{display:flex;gap:12px;flex-wrap:wrap;}
+  .btn{border-radius:12px;padding:13px 22px;font-size:14px;font-weight:600;cursor:pointer;
+    border:1px solid transparent;transition:transform .15s,box-shadow .2s;display:inline-flex;align-items:center;gap:8px;}
+  .btn:active{transform:scale(0.97);}
+  .btn-primary{background:var(--cyan);color:#08231F;}
+  .btn-primary:hover{box-shadow:0 8px 24px -8px var(--cyan);}
+  .btn-ghost{background:var(--panel);color:var(--text);border-color:var(--panel-border);}
+  .btn-ghost:hover{border-color:var(--cyan);}
+  #fileInput{display:none;}
+
+  /* radar */
+  .radar-wrap{display:flex;justify-content:center;align-items:center;}
+  .radar{width:100%;max-width:360px;aspect-ratio:1/1;}
+  .radar-ring{fill:none;stroke:var(--panel-border);stroke-width:1;}
+  .radar-axis{stroke:var(--panel-border);stroke-width:1;}
+  .radar-sweep{transform-origin:200px 200px;animation:sweepSpin 4s linear infinite;}
+  @keyframes sweepSpin{to{transform:rotate(360deg);}}
+  .radar-blip{fill:var(--cyan);filter:drop-shadow(0 0 6px var(--cyan));}
+  .radar-blip-risk{fill:var(--amber);filter:drop-shadow(0 0 6px var(--amber));}
+
+  /* stats */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:36px 0 28px;}
+  .stat-card{background:var(--panel);border:1px solid var(--panel-border);border-radius:var(--radius);
+    padding:20px;transition:transform .2s,border-color .2s;}
+  .stat-card:hover{transform:translateY(-3px);border-color:var(--cyan);}
+  .stat-num{font-size:28px;font-weight:700;font-family:'Space Grotesk',sans-serif;}
+  .stat-label{font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-top:4px;}
+  .stat-card.c-open .stat-num{color:var(--cyan);}
+  .stat-card.c-risk .stat-num{color:var(--amber);}
+
+  /* section head */
+  .section-head{display:flex;align-items:baseline;justify-content:space-between;margin:0 0 18px;}
+  .section-head h2{font-size:20px;letter-spacing:-.01em;font-family:'Space Grotesk',sans-serif;}
+  .section-head .meta{font-size:13px;color:var(--text-dim);}
+
+  /* dropzone */
+  .dropzone{border:1.5px dashed var(--panel-border);border-radius:var(--radius);padding:18px 22px;
+    display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:30px;
+    background:var(--bg-soft);transition:border-color .2s,background .2s;}
+  .dropzone.dragover{border-color:var(--cyan);background:var(--cyan-soft);}
+  .dropzone .dz-text{font-size:13px;color:var(--text-dim);}
+  .dropzone .dz-text b{color:var(--text);}
+
+  /* splash / empty state */
+  .splash{
+    border:1px dashed var(--panel-border);border-radius:var(--radius);padding:72px 40px;
+    text-align:center;background:var(--bg-soft);margin-bottom:60px;
+    display:flex;flex-direction:column;align-items:center;gap:16px;
+  }
+  .splash-icon{font-size:48px;opacity:.35;}
+  .splash h3{font-size:22px;font-family:'Space Grotesk',sans-serif;}
+  .splash p{color:var(--text-dim);font-size:14px;max-width:420px;line-height:1.6;}
+
+  /* port cards bento */
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding-bottom:60px;}
+  .card{background:var(--panel);border:1px solid var(--panel-border);border-radius:var(--radius);
+    padding:20px;position:relative;overflow:hidden;
+    transition:transform .2s,border-color .2s,box-shadow .2s;}
+  .card:hover{transform:translateY(-4px);border-color:var(--cyan);box-shadow:0 14px 30px -16px rgba(0,0,0,.5);}
+  .card .port-num{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:600;}
+  .card .svc{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15px;margin-top:2px;}
+  .card .desc{color:var(--text-dim);font-size:13px;margin-top:8px;line-height:1.5;}
+  .card .banner{margin-top:12px;padding:9px 10px;background:var(--bg-soft);border-radius:8px;
+    font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--text-dim);
+    border:1px solid var(--panel-border);word-break:break-all;}
+  .tag{position:absolute;top:18px;right:18px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+    padding:4px 9px;border-radius:999px;font-weight:600;}
+  .tag.legacy{background:var(--amber-soft);color:var(--amber);}
+  .tag.standard{background:var(--cyan-soft);color:var(--cyan);}
+
+  footer{border-top:1px solid var(--panel-border);padding:26px 0 50px;}
+  footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;font-size:12.5px;color:var(--text-dim);}
+
+  @media(max-width:880px){.hero{grid-template-columns:1fr;}.stats{grid-template-columns:repeat(2,1fr);}.grid{grid-template-columns:1fr 1fr;}h1{font-size:34px;}}
+  @media(max-width:560px){.grid{grid-template-columns:1fr;}.stats{grid-template-columns:1fr 1fr;}}
+  @media(prefers-reduced-motion:reduce){*{animation-duration:.001ms!important;transition-duration:.001ms!important;}}
+  :focus-visible{outline:2px solid var(--cyan);outline-offset:2px;}
+</style>
+</head>
+<body data-theme="dark">
+<div class="ambient"></div>
+
+<header>
+  <div class="nav wrap">
+    <div class="brand">
+      <span class="brand-dot"></span>
+      <div>
+        <div class="brand-name">PORTSCOPE</div>
+        <div class="brand-sub">scan results dashboard</div>
+      </div>
+    </div>
+    <button class="theme-toggle" id="themeToggle">🌙 Dark</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <div>
+      <div class="eyebrow">Local · Read-only · No live scanning</div>
+      <h1>See exactly what your <span class="accent">port scan</span> found.</h1>
+      <p class="lede">Run <code class="mono">port_scanner.py</code> against a host you own, then drop the JSON here to visualize open ports, service identities, and banners.</p>
+      <div class="cta-row">
+        <button class="btn btn-primary" id="loadDemoBtn">▶ Load demo results</button>
+        <button class="btn btn-ghost" id="uploadBtn">⇪ Upload scan.json</button>
+        <input type="file" id="fileInput" accept="application/json" />
+      </div>
+    </div>
+    <div class="radar-wrap">
+      <svg class="radar" viewBox="0 0 400 400">
+        <circle class="radar-ring" cx="200" cy="200" r="170"/>
+        <circle class="radar-ring" cx="200" cy="200" r="120"/>
+        <circle class="radar-ring" cx="200" cy="200" r="70"/>
+        <line class="radar-axis" x1="200" y1="20" x2="200" y2="380"/>
+        <line class="radar-axis" x1="20" y1="200" x2="380" y2="200"/>
+        <g class="radar-sweep">
+          <path d="M200,200 L200,20 A180,180 0 0,1 260,38 Z" fill="url(#sg)"/>
+        </g>
+        <defs>
+          <linearGradient id="sg" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stop-color="var(--cyan)" stop-opacity="0"/>
+            <stop offset="100%" stop-color="var(--cyan)" stop-opacity="0.45"/>
+          </linearGradient>
+        </defs>
+        <g id="radarBlips"></g>
+        <text id="radarCount" x="200" y="195" text-anchor="middle"
+          font-size="28" font-weight="700" fill="var(--text)" font-family="'Space Grotesk',sans-serif">–</text>
+        <text id="radarSub" x="200" y="216" text-anchor="middle"
+          font-size="11" fill="var(--text-dim)" font-family="'Inter',sans-serif">click demo to start</text>
+      </svg>
+    </div>
+  </section>
+
+  <div class="stats">
+    <div class="stat-card c-open"><div class="stat-num" id="statOpen">–</div><div class="stat-label">Open ports</div></div>
+    <div class="stat-card"><div class="stat-num" id="statScanned">–</div><div class="stat-label">Ports scanned</div></div>
+    <div class="stat-card"><div class="stat-num" id="statDuration">–</div><div class="stat-label">Scan duration</div></div>
+    <div class="stat-card c-risk"><div class="stat-num" id="statLegacy">–</div><div class="stat-label">Legacy / unencrypted</div></div>
+  </div>
+
+  <div class="dropzone" id="dropzone">
+    <div class="dz-text"><b>Drag & drop</b> a <span class="mono">scan.json</span> here — or use the buttons above. All processing happens locally in your browser.</div>
+  </div>
+
+  <section id="resultsSection">
+    <div class="section-head">
+      <h2 id="targetHeading">Scan results</h2>
+      <div class="meta" id="targetMeta">no data loaded</div>
+    </div>
+    <div id="portGrid">
+      <div class="splash">
+        <div class="splash-icon">📡</div>
+        <h3>No scan loaded yet</h3>
+        <p>Click <strong>Load demo results</strong> to see an example, or upload the JSON file produced by <span class="mono">port_scanner.py --json scan.json</span>.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div><strong>Authorized use only.</strong> Only scan systems you own or have explicit written permission to test.</div>
+    <div>Portscope is a static local viewer — no data leaves your browser.</div>
+  </div>
+</footer>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  var LEGACY_PORTS = new Set([21,23,69,139,445,512,513,514,873,1433,1521,1723,3306,3389,5900,6379,11211]);
+
+  var DEMO = {
+    target: "demo-server.local",
+    ip: "10.0.0.42",
+    scanned_at: "2026-07-02T09:00:00+00:00",
+    ports_scanned: 1024,
+    duration_seconds: 2.31,
+    open_ports: [
+      {port:22,  service:"SSH",        description:"Secure Shell",                         banner:"SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13"},
+      {port:80,  service:"HTTP",       description:"Web server",                           banner:"Server: nginx/1.25.3"},
+      {port:443, service:"HTTPS",      description:"Encrypted web server (TLS)",           banner:null},
+      {port:3306,service:"MySQL",      description:"MySQL/MariaDB database",               banner:"5.7.39-log"},
+      {port:6379,service:"Redis",      description:"In-memory data store",                 banner:"-ERR unknown command 'HEAD'"},
+      {port:8080,service:"HTTP-PROXY", description:"Alternate HTTP / app server",          banner:"Server: Apache-Coyote/1.1"},
+    ]
+  };
+
+  function esc(str) {
+    var d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  function renderRadarBlips(open) {
+    var g = document.getElementById('radarBlips');
+    g.innerHTML = '';
+    var n = Math.max(open.length, 1);
+    open.forEach(function(p, i) {
+      var angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+      var radius = 70 + (i % 3) * 50;
+      var x = 200 + Math.cos(angle) * radius;
+      var y = 200 + Math.sin(angle) * radius;
+      var el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      el.setAttribute('cx', x);
+      el.setAttribute('cy', y);
+      el.setAttribute('r', 4.5);
+      el.setAttribute('class', LEGACY_PORTS.has(p.port) ? 'radar-blip-risk' : 'radar-blip');
+      g.appendChild(el);
+    });
+  }
+
+  function render(data) {
+    var open = data.open_ports || [];
+    var legacyCount = open.filter(function(p){ return LEGACY_PORTS.has(p.port); }).length;
+
+    // stats
+    document.getElementById('statOpen').textContent     = open.length;
+    document.getElementById('statScanned').textContent  = data.ports_scanned != null ? data.ports_scanned : '–';
+    document.getElementById('statDuration').textContent = data.duration_seconds != null ? data.duration_seconds + 's' : '–';
+    document.getElementById('statLegacy').textContent   = legacyCount;
+
+    // radar
+    document.getElementById('radarCount').textContent = open.length;
+    document.getElementById('radarSub').textContent   = open.length === 1 ? 'open port' : 'open ports';
+    renderRadarBlips(open);
+
+    // heading
+    document.getElementById('targetHeading').textContent = 'Open ports — ' + data.target + (data.ip ? ' (' + data.ip + ')' : '');
+    document.getElementById('targetMeta').textContent    = 'scanned ' + (data.ports_scanned || 0) + ' ports in ' + (data.duration_seconds || 0) + 's';
+
+    // grid
+    var grid = document.getElementById('portGrid');
+    grid.innerHTML = '';
+
+    if (open.length === 0) {
+      grid.innerHTML = '<div class="splash"><div class="splash-icon">🔒</div><h3>No open ports found</h3><p>The host appears locked down in the scanned range. Try widening the port range with <span class="mono">-p 1-65535</span>.</p></div>';
+      return;
+    }
+
+    // Build a temporary fragment so we can animate after append
+    var frag = document.createDocumentFragment();
+    var cards = [];
+    open.forEach(function(p) {
+      var legacy = LEGACY_PORTS.has(p.port);
+      var card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML =
+        '<span class="tag ' + (legacy ? 'legacy' : 'standard') + '">' + (legacy ? 'legacy / unencrypted' : 'open') + '</span>' +
+        '<div class="port-num">' + p.port + '</div>' +
+        '<div class="svc">' + esc(p.service || 'Unknown') + '</div>' +
+        '<div class="desc">' + esc(p.description || '') + '</div>' +
+        (p.banner ? '<div class="banner">' + esc(p.banner) + '</div>' : '');
+      frag.appendChild(card);
+      cards.push(card);
+    });
+    grid.appendChild(frag);
+
+    // animate
+    if (window.gsap) {
+      gsap.from(cards, { opacity: 0, y: 18, duration: 0.4, stagger: 0.06, ease: 'power2.out' });
+    }
+  }
+
+  // ── event wiring ─────────────────────────────────────────────────
+
+  document.getElementById('loadDemoBtn').addEventListener('click', function() {
+    render(DEMO);
+  });
+
+  document.getElementById('uploadBtn').addEventListener('click', function() {
+    document.getElementById('fileInput').click();
+  });
+
+  document.getElementById('fileInput').addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    readFile(file);
+    e.target.value = ''; // reset so same file can be re-uploaded
+  });
+
+  function readFile(file) {
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        var data = JSON.parse(ev.target.result);
+        render(data);
+      } catch(err) {
+        alert('Could not parse JSON. Make sure you\'re using the file from port_scanner.py --json output.');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  var dz = document.getElementById('dropzone');
+  dz.addEventListener('dragenter', function(e){ e.preventDefault(); dz.classList.add('dragover'); });
+  dz.addEventListener('dragover',  function(e){ e.preventDefault(); dz.classList.add('dragover'); });
+  dz.addEventListener('dragleave', function(e){ e.preventDefault(); dz.classList.remove('dragover'); });
+  dz.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dz.classList.remove('dragover');
+    var file = e.dataTransfer.files[0];
+    if (file) readFile(file);
+  });
+
+  document.getElementById('themeToggle').addEventListener('click', function() {
+    var body = document.body;
+    var isDark = body.getAttribute('data-theme') === 'dark';
+    body.setAttribute('data-theme', isDark ? 'light' : 'dark');
+    document.getElementById('themeToggle').textContent = isDark ? '☀️ Light' : '🌙 Dark';
+  });
+
+  // hero entrance
+  if (window.gsap) {
+    gsap.from('h1', { opacity:0, y:16, duration:0.6, ease:'power2.out' });
+    gsap.from('.lede', { opacity:0, y:16, duration:0.6, delay:0.1, ease:'power2.out' });
+    gsap.from('.cta-row', { opacity:0, y:16, duration:0.6, delay:0.2, ease:'power2.out' });
+    gsap.from('.stat-card', { opacity:0, y:16, duration:0.5, stagger:0.07, delay:0.15, ease:'power2.out' });
+  }
+
+});
+</script>
+</body>
+</html>
